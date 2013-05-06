@@ -1,0 +1,57 @@
+#This is a dummy-ish file to provide boost when it is installed on the system
+#It is designed to be compatible with the actual boost source (Only change jamroot to point to source).
+#Author: Thomas Suckow thomas.suckow@pnnl.gov
+
+import regex ;
+
+#Headers will be in search path so this is an empty target.
+alias headers ;
+
+#We do some magic so we can specify usage-requirements
+local all-libraries =
+   date_time
+   filesystem
+   graph
+   iostreams
+   math_c99
+   math_c99f
+   math_c99l
+   math_tr1
+   math_tr1f
+   math_tr1l
+   prg_exec_monitor
+   program_options
+   python
+   regex
+   serialization
+   signals
+   system
+   thread/"<link>shared:<define>BOOST_THREAD_USE_DLL=1"
+   unit_test_framework/"<link>shared:<define>BOOST_TEST_DYN_LINK=1"
+   wave
+   wserialization
+;
+
+lib test_boost_mt : : <name>boost_thread-mt ;
+exe has_boost_thread_mt : main.cpp test_boost_mt ;
+
+for local l in $(all-libraries)
+{
+   local namevalue = [ regex.match ([^/]*)/(.*) : $(l) ] ;
+   local name ;
+   if $(namevalue[1])
+   {
+      l = $(namevalue[1]) ;
+   }
+
+#   lib $(l) : : <name>boost_$(l)    <threading>single : : $(namevalue[2]) ;
+#   lib $(l) : : <name>boost_$(l)-mt <threading>multi  : : $(namevalue[2]) ;
+
+   lib $(l)-nomt : : <name>boost_$(l)    : : $(namevalue[2]) ;
+   lib $(l)-mt   : : <name>boost_$(l)-mt : : $(namevalue[2]) ;
+
+#  This doesn't check for having both -mt and no -mt. It assumes one or the other.
+   alias $(l) : : : : [ check-target-builds has_boost_thread_mt "Boost uses -mt suffix" : <library>$(l)-mt : <library>$(l)-nomt ] ;
+#  MSVC uses magic to link, so we don't want to interfere with that
+   alias $(l) : : <toolset>msvc : : $(namevalue[2]) ;
+}
